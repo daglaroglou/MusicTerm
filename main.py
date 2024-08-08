@@ -5,10 +5,22 @@ import curses
 import psutil
 import pypresence
 import ytmusicapi
+from datetime import datetime
+
+ytmusic = ytmusicapi.YTMusic()
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "1"; import pygame
 
-if 'discord' in psutil.Process(os.getpid()).name():
+def process_exists(processName):
+    for proc in psutil.process_iter():
+        try:
+            if processName.lower() in proc.name().lower():
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+    return False
+
+if process_exists('discord'):
     RPC = pypresence.Presence('1109236774972162069')
     RPC.connect()
     RPC.update(state="In menu", details="Browsing", large_image="https://media.tenor.com/gxOAnTcT8tMAAAAi/musical-notes.gif", large_text="MusicTerm", start=int(time.time()))
@@ -81,29 +93,56 @@ def main(stdscr):
                 current_playing_song = current_row
                 paused = False
                 set_terminal_title(f"Playing: {songs[current_row]}")
+                r = ytmusic.search(songs[current_row])
+                if r:
+                    img = r[0]['thumbnails'][0]['url']
+                    RPC.update(state=f"Playing at {int(volume_percentage)}% volume", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
+                else:
+                    img = "https://media.tenor.com/gxOAnTcT8tMAAAAi/musical-notes.gif"
+                    RPC.update(state=f"Playing at {int(volume_percentage)}%", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
+                
             else:
                 if not paused:
                     pygame.mixer.music.pause()
                     paused = True
                     set_terminal_title("Paused")
+                    r = ytmusic.search(songs[current_row])
+                    if r:
+                        img = r[0]['thumbnails'][0]['url']
+                        RPC.update(state="Paused", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
+                    else:
+                        img = "https://media.tenor.com/gxOAnTcT8tMAAAAi/musical-notes.gif"
+                        RPC.update(state=f"Paused", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
                 else:
                     pygame.mixer.music.unpause()
                     paused = False
-                    set_terminal_title(f"Playing: {songs[current_row]}")
+                    r = ytmusic.search(songs[current_row])
+                    if r:
+                        img = r[0]['thumbnails'][0]['url']
+                        RPC.update(state=f"Playing at {int(volume_percentage)}% volume", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
+                    else:
+                        img = "https://media.tenor.com/gxOAnTcT8tMAAAAi/musical-notes.gif"
+                        RPC.update(state=f"Playing at {int(volume_percentage)}% volume", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
+
         elif key == ord('q') or key == ord('Q'):
             break
         elif key == ord('s') or key == ord('S'):
             pygame.mixer.music.stop()
             set_terminal_title("Stopped")
+            RPC.update(state="In menu", details="Browsing...", large_image="https://media.tenor.com/gxOAnTcT8tMAAAAi/musical-notes.gif", large_text="MusicTerm", start=int(time.time()))
         elif key == ord('='):
             volume = pygame.mixer.music.get_volume()
             new_volume = min(volume + 0.025, 1.0)
             pygame.mixer.music.set_volume(new_volume)
+            if not paused:
+                RPC.update(state=f"Playing at {int(volume_percentage)}% volume", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
         elif key == ord('-'):
             volume = pygame.mixer.music.get_volume()
             new_volume = max(volume - 0.025, 0.0)
             pygame.mixer.music.set_volume(new_volume)
+            if not paused:
+                RPC.update(state=f"Playing at {int(volume_percentage)}% volume", details=songs[current_row], large_image=img, large_text="MusicTerm", start=int(time.time()))
 
 if __name__ == "__main__":
-    set_terminal_title("MusicTerm v1.0")
+    set_terminal_title("MusicTerm")
     curses.wrapper(main)
